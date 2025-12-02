@@ -1,6 +1,7 @@
 from transformers import PretrainedConfig
 import torch
 from torch import nn
+from transformers.activations import ACT2FN
 
 class MiniMindConfig(PretrainedConfig):
     model_type = "minimind"
@@ -84,3 +85,20 @@ class RMSNorm(torch.nn.Module):
     def forward(self, x):
         # Convert to float32 for numerical stability
         return self.weight * self._norm(x.float()).type_as(x)
+
+class FeedForward(torch.nn.Module):
+    def __init__(self, args:MiniMindConfig):
+        super().__init__()
+        if args.intermediate_size is None:
+            intermediate_size = int(args.hidden_size * 8/3)
+            # round to the nearest multiple of 64
+            args.intermediate_size = 64*((intermediate_size+63)//64)
+        self.gate_proj = torch.nn.Linear(args.hidden_size, args.intermediate_size, bias=False)
+        self.up_proj = torch.nn.Linear(args.hidden_size, args.intermediate_size, bias=False)
+        self.down_proj = torch.nn.Linear(args.intermediate_size, args.hidden_size, bias=False)
+        self.act_fn = ACT2FN[args.hidden_act]
+        self.dropout = nn.Dropout(args.dropout)
+
+    def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
+        output = self.down_proj(self.act_fn(self.gate_proj(hidden_states) * self.up_proj(hidden_states)))
+        return self.dropout(output)
