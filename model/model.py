@@ -102,7 +102,7 @@ class FeedForward(torch.nn.Module):
         self.dropout = nn.Dropout(args.dropout)
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
-        output = self.down_proj(self.act_fn(self.gate_proj(hidden_states) * self.up_proj(hidden_states)))
+        output = self.down_proj(self.act_fn(self.up_proj(hidden_states)) * self.gate_proj(hidden_states))
         return self.dropout(output)
 
 def precompute_freqs_cis(dim: int, end: int = int(32*1024), rope_theta: float = 1e6, rope_scaling: Optional[dict] = None):
